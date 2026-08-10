@@ -2,6 +2,12 @@
 
 Wraps the Claude tool-use agent in agent_core.py in a chat interface that
 also shows which tools were called (with inputs/outputs) at each step.
+
+This deploy uses a "bring your own key" pattern: each visitor pastes their
+own Anthropic API key into the sidebar, so the person hosting this app pays
+nothing and no key sits in the deployment's secrets. Locally, export
+ANTHROPIC_API_KEY (or add it to .streamlit/secrets.toml) and it'll pre-fill
+the sidebar field for convenience.
 """
 import os
 
@@ -11,14 +17,16 @@ from agent_core import run_agent_turn
 
 st.set_page_config(page_title="Store Inventory Assistant", page_icon="🤖", layout="centered")
 
-# Streamlit Community Cloud users set this in .streamlit/secrets.toml; locally,
-# export ANTHROPIC_API_KEY before running. st.secrets raises if no secrets.toml
-# exists at all, so this has to be guarded rather than checked with `in`.
-if "ANTHROPIC_API_KEY" not in os.environ:
+
+def _local_default_key() -> str:
+    """Pre-fill the sidebar field from env/secrets for local dev convenience only."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return os.environ["ANTHROPIC_API_KEY"]
     try:
-        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+        return st.secrets["ANTHROPIC_API_KEY"]
     except (FileNotFoundError, KeyError, st.errors.StreamlitSecretNotFoundError):
-        pass
+        return ""
+
 
 st.title("🤖 Store Inventory Assistant")
 st.caption(
@@ -26,11 +34,28 @@ st.caption(
     "\"Will Store 20 need more inventory for Department 5 next month?\""
 )
 
-if not os.environ.get("ANTHROPIC_API_KEY"):
-    st.warning(
-        "No `ANTHROPIC_API_KEY` found. Set it as an environment variable, or add it to "
-        "`.streamlit/secrets.toml`, then reload this page.",
-        icon="⚠️",
+with st.sidebar:
+    st.header("Your Anthropic API key")
+    api_key = st.text_input(
+        "API key",
+        value=_local_default_key(),
+        type="password",
+        placeholder="sk-ant-...",
+        help="Get one at console.anthropic.com. Used only for your requests in this "
+        "browser session — never stored or logged.",
+        label_visibility="collapsed",
+    )
+    st.caption(
+        "This app doesn't ship with a shared key, so each visitor uses their own. "
+        "Get a key at [console.anthropic.com](https://console.anthropic.com)."
+    )
+
+if not api_key:
+    st.info(
+        "👈 Paste your Anthropic API key in the sidebar to start chatting. "
+        "Don't have one? Create one at "
+        "[console.anthropic.com](https://console.anthropic.com).",
+        icon="🔑",
     )
     st.stop()
 
@@ -67,7 +92,7 @@ if prompt := st.chat_input("Ask about restocking..."):
     with st.chat_message("assistant"):
         with st.spinner("Checking sales data, forecast, and anomalies..."):
             try:
-                result = run_agent_turn(st.session_state.agent_history, prompt)
+                result = run_agent_turn(st.session_state.agent_history, prompt, api_key=api_key)
             except Exception as exc:
                 st.error(f"Agent error: {exc}")
                 st.stop()
@@ -85,10 +110,9 @@ with st.sidebar:
     st.header("About")
     st.write(
         "This assistant uses Claude (with tool use) to answer restocking questions. "
-        "It calls into the same forecasting model and pipeline as the main "
-        "[Sales Forecast app](app.py) — it queries historical sales, runs the trained "
-        "demand forecast, checks for recent anomalies, and reasons about whether a "
-        "restock is needed."
+        "It queries historical sales, runs a trained demand forecast, checks for "
+        "recent anomalies, and reasons about whether a restock is needed — all "
+        "grounded in real data via tool calls, shown above each answer."
     )
     if st.button("Clear conversation"):
         st.session_state.agent_history = []
