@@ -8,6 +8,18 @@ Also includes an agentic AI assistant (`agent_app.py`) that answers plain-Englis
 restocking questions ("Will Store 20 need more inventory for Department 5 next
 month?") by calling tools backed by the same pipeline and trained model.
 
+## 🚀 Try it live
+
+**[walmart-sales-forecast-agent-pgc83j8snegqpngzntccqb.streamlit.app](https://walmart-sales-forecast-agent-pgc83j8snegqpngzntccqb.streamlit.app)**
+
+Ask it something like *"Will Store 20 need more inventory for Department 5 next
+month?"* and watch it call tools (recent sales history, a trained demand
+forecast, an anomaly check) before giving a grounded answer.
+
+This deploy uses a bring-your-own-key pattern — paste your own [Anthropic API
+key](https://console.anthropic.com) into the sidebar to chat. Nothing is
+stored or logged; it's only used for your requests in that browser session.
+
 ## Project layout
 
 - `pipeline.py` — shared data loading + feature engineering (used by training and both apps)
@@ -30,18 +42,15 @@ streamlit run app.py
 
 ### Running the inventory assistant
 
-The agent needs an Anthropic API key. Either export it before launching Streamlit:
-
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
 streamlit run agent_app.py
 ```
 
-or add it to `.streamlit/secrets.toml` (not committed to git):
-
-```toml
-ANTHROPIC_API_KEY = "sk-ant-..."
-```
+The agent needs an Anthropic API key, entered directly in the app's sidebar —
+this is a bring-your-own-key design, so no key is baked into the deployment
+and hosting it costs nothing. For local dev convenience, you can pre-fill
+that sidebar field by exporting `ANTHROPIC_API_KEY` before launching, or
+adding it to `.streamlit/secrets.toml` (gitignored, never committed).
 
 By default the agent uses `claude-opus-5`; override with the `AGENT_MODEL` env var
 (e.g. `AGENT_MODEL=claude-sonnet-5`) for a cheaper/faster model.
@@ -72,7 +81,13 @@ those inputs stay constant.
 
 ## Deploying to Streamlit Community Cloud
 
-1. Push this directory to a GitHub repo (see below).
+1. Push this directory to a GitHub repo.
 2. Go to https://share.streamlit.io, sign in, and click "New app".
-3. Point it at the repo, branch, and `app.py` as the main file.
+3. Point it at the repo, branch, and main file — `app.py` for the dashboard,
+   `agent_app.py` for the inventory assistant (deploy as two separate apps to
+   get both live).
 4. Deploy. Community Cloud installs from `requirements.txt` automatically.
+   If the build fails on a very new default Python version, set it to `3.10`
+   under **Advanced settings** before deploying.
+5. `agent_app.py` needs no Secrets configuration — it's bring-your-own-key,
+   so each visitor supplies their own Anthropic API key in the sidebar.
