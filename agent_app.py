@@ -78,16 +78,22 @@ def render_tool_calls(tool_calls):
                 st.json(call.output)
 
 
+def render_text(text: str):
+    # Escape bare "$" so Streamlit's markdown renderer doesn't treat a pair of
+    # dollar amounts (e.g. "$23,000 ... $26,000") as a LaTeX math block.
+    st.markdown(text.replace("$", "\\$"))
+
+
 for turn in st.session_state.display_turns:
     with st.chat_message(turn["role"]):
         if turn.get("tool_calls"):
             render_tool_calls(turn["tool_calls"])
-        st.markdown(turn["content"])
+        render_text(turn["content"])
 
 if prompt := st.chat_input("Ask about restocking..."):
     st.session_state.display_turns.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        render_text(prompt)
 
     with st.chat_message("assistant"):
         with st.spinner("Checking sales data, forecast, and anomalies..."):
@@ -99,7 +105,7 @@ if prompt := st.chat_input("Ask about restocking..."):
 
         if result.tool_calls:
             render_tool_calls(result.tool_calls)
-        st.markdown(result.reply)
+        render_text(result.reply)
 
     st.session_state.agent_history = result.messages
     st.session_state.display_turns.append(
