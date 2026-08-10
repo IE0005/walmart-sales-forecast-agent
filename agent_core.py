@@ -58,24 +58,32 @@ class AgentTurnResult:
     messages: list = field(default_factory=list)
 
 
-def _get_client() -> anthropic.Anthropic:
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+def _get_client(api_key: str = None) -> anthropic.Anthropic:
+    key = api_key or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    if not key:
         raise RuntimeError(
-            "No Anthropic API key found. Set the ANTHROPIC_API_KEY environment variable "
-            "(or add it to .streamlit/secrets.toml as ANTHROPIC_API_KEY) before using the agent."
+            "No Anthropic API key provided. Pass one in (e.g. from the Streamlit sidebar), "
+            "or set the ANTHROPIC_API_KEY environment variable for local development."
         )
-    return anthropic.Anthropic()
+    return anthropic.Anthropic(api_key=key)
 
 
-def run_agent_turn(history: list, user_message: str, max_iterations: int = MAX_TOOL_ITERATIONS) -> AgentTurnResult:
+def run_agent_turn(
+    history: list,
+    user_message: str,
+    api_key: str = None,
+    max_iterations: int = MAX_TOOL_ITERATIONS,
+) -> AgentTurnResult:
     """Run one user turn through the tool-use agentic loop.
 
     `history` is the prior conversation in Anthropic message format
-    (list of {"role", "content"} dicts). Returns the final text reply plus
-    a trace of every tool call made along the way, and the updated message
-    history to carry into the next turn.
+    (list of {"role", "content"} dicts). `api_key`, if given, is used instead
+    of the ANTHROPIC_API_KEY environment variable — this is how the Streamlit
+    UI passes through a key a visitor typed in themselves. Returns the final
+    text reply plus a trace of every tool call made along the way, and the
+    updated message history to carry into the next turn.
     """
-    client = _get_client()
+    client = _get_client(api_key)
     messages = [*history, {"role": "user", "content": user_message}]
     tool_calls: list = []
 
