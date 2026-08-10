@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+streamlit.log
+.DS_Store
+.claude/
+.streamlit/secrets.toml
+catboost_info/
+walmart-sales-forecast-app/
+GitHub.com
